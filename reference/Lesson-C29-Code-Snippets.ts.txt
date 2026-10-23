@@ -1,0 +1,57 @@
+import type { Browser, BrowserContext, Page, Route } from "playwright";
+import { z } from "zod";
+export function fixtureOrigin(value: string) {
+  const url = new URL(value);
+  if (url.origin !== value || url.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname))
+    throw new Error("Trusted local fixture origin required");
+  return url.origin;
+}
+export async function guardFixtureRequest(route: Route, origin: string) {
+  const url = new URL(route.request().url());
+  if (url.origin !== origin || !["GET", "POST"].includes(route.request().method())) { await route.abort(); return; }
+  let response;
+  try { response = await route.fetch({ maxRedirects: 0, timeout: 5000 }); }
+  catch { await route.abort(); return; }
+  // A deliberate fixture policy: block ALL redirects, even same-origin ones.
+  if (response.status() >= 300 && response.status() < 400) { await route.abort(); return; }
+  await route.fulfill({ response });
+}
+export async function configureFixtureContext(context: BrowserContext, origin: string) {
+  await context.route("**/*", route => guardFixtureRequest(route, origin));
+  await context.routeWebSocket(/.*/, socket => socket.close());
+}
+const Empty = z.strictObject({});
+const Navigate = z.strictObject({ url: z.string() });
+const Fill = z.strictObject({ quantity: z.number().int().min(1).max(100) });
+export function makeFixtureBridge(page: Page, trustedOrigin: string) {
+  const origin = fixtureOrigin(trustedOrigin);
+  // These are fixed host operations, not arbitrary browser script or selector access.
+  return async (name: string, input: unknown) => {
+    if (name === "browser_navigate") {
+      const args = Navigate.parse(input);
+      if (args.url !== origin + "/") throw new Error("Navigation outside fixture");
+      await page.goto(args.url, { waitUntil: "domcontentloaded", timeout: 5000 }); return { navigated: true };
+    }
+    if (name === "browser_snapshot") { Empty.parse(input); return { text: (await page.locator("body").innerText()).slice(0,4096) }; }
+    if (name === "browser_fill_form") { const args = Fill.parse(input); await page.locator("#quantity").fill(String(args.quantity)); return { filled: true }; }
+    if (name === "browser_click") { Empty.parse(input); await page.locator("#preview").click(); return { previewClicked: true }; }
+    throw new Error("Tool not bridged");
+  };
+}
+export async function withFixtureBrowser<T>(browser: Browser, trustedOrigin: string,
+  run: (call: ReturnType<typeof makeFixtureBridge>) => Promise<T>) {
+  const origin = fixtureOrigin(trustedOrigin);
+  const context = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false });
+  try {
+    context.setDefaultTimeout(5000);
+    await configureFixtureContext(context, origin);
+    const page = await context.newPage();
+    return await run(makeFixtureBridge(page, origin));
+  } finally { await context.close(); }
+}
+// An illustrative HOST browser adapter for a trusted local fixture. If exposing it through MCP,
+// bind that transport to THIS context; routing another browser does not protect an MCP-owned browser.
+// Not a complete browser sandbox/egress policy: enforce OS/network controls for hostile pages.
+// Fixed operations exclude raw evaluate, arbitrary selectors, uploads and download commands.
+// Page content remains untrusted. A tool allowlist does not make every click or page script harmless.
+// The host authenticates/authorizes the caller, bounds the run and correlates custom results.

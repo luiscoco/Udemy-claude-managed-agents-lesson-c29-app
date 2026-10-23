@@ -1,0 +1,29 @@
+{
+  "source": "live-provider-commentary",
+  "sessionId": "sesn_01NBWWtrqp9FVnM1kK3ynJwE",
+  "answer": "This local experiment demonstrates a constrained form-preview workflow where a quantity field was filled with a value of 3, producing a calculated preview total of 750 cents, without ever submitting the form. The allowed operations were limited to navigating a fixture, filling the bounded field, and previewing \u2014 no external submission occurred. It serves as a teaching example of validating a fixed local capability in isolation from any remote integration.",
+  "stopReason": "end_turn",
+  "eventTypes": [
+    "session.status_running",
+    "session.thread_status_running",
+    "user.message",
+    "span.model_request_start",
+    "agent.thinking",
+    "agent.message",
+    "span.model_request_end",
+    "session.thread_status_idle",
+    "session.usage",
+    "session.status_idle"
+  ],
+  "requestUsage": [
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 596,
+      "output_tokens": 121,
+      "speed": "standard"
+    }
+  ],
+  "experimentHash": "55e165274fc4e099a467a83bb5ebcdd99d08643d8e469cfa4e775b18b88158c3",
+  "scope": "A real text-only model response about the local experiment. External integrations and the experiment's correctness are not certified by this response."
+}
