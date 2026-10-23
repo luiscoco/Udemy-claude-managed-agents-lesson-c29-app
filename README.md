@@ -42,27 +42,82 @@ CLAUDE_MANAGED_ENVIRONMENT_ID=your_environment_id
 PORT=3029
 ```
 
-## How the application was developed
+## How the app was build
 
-The browser collects inputs; the Node host validates requests; the lesson implementation produces observable evidence. The architecture page walks through the real source with numbered steps, prerequisite configuration, source filenames and code excerpts.
+### 1. Restrict navigation to the fixed fixture
 
-### Lesson implementation
+The example accepts one exact local origin and path and rejects redirected navigation. It models the navigation policy rather than driving a browser.
 
-[src/lesson.ts](https://github.com/luiscoco/Udemy-claude-managed-agents-lesson-c29-app/blob/main/src/lesson.ts)
+Source: [src/lesson.ts](src/lesson.ts#L13) · selected statements
 
 ```typescript
-  async run(input) {
+const url = new URL(text(input, "url")),
+  qty = number(input, "quantity");
 
-const url=new URL(text(input,"url")),qty=number(input,"quantity");
-if(url.origin!=="http://127.0.0.1:3029"||url.pathname!=="/fixture"||flag(input,"redirected"))return report("rejected","Navigation or redirect is outside the fixed fixture policy",{},["Check the exact fixture origin and path","Reject redirects before following them"]);
-if(!Number.isInteger(qty)||qty<1||qty>100)return report("rejected","Quantity is outside the reviewed form schema",{},["Expose fixed operations rather than arbitrary selectors"]);
-return report("passed","Calculated a non-submitting local form preview",{quantity:qty,previewTotalCents:qty*250,submitted:false,allowedOperations:["navigate fixture","fill quantity","preview"]},["Validate a fixed capability","Fill the bounded field in the local model","Preview without submitting an external form"]);
-
-  }
-};
+if (
+  url.origin !== "http://127.0.0.1:3029" ||
+  url.pathname !== "/fixture" ||
+  flag(input, "redirected")
+)
+  return report(
+    "rejected",
+    "Navigation or redirect is outside the fixed fixture policy",
+    {},
+    [
+      "Check the exact fixture origin and path",
+      "Reject redirects before following them",
+    ],
+  );
 ```
 
-Read the architecture page for the remaining source excerpts and explanations, including input handling and optional provider behavior. The diagram describes this application, rather than implying that an external integration has been implemented.
+### 2. Expose a bounded form operation
+
+Quantity must be an integer from 1 to 100. The result calculates a preview at 250 cents per unit and retains submitted:false; no external form is submitted and no arbitrary selectors are exposed.
+
+Source: [src/lesson.ts](src/lesson.ts#L15) · selected statements
+
+```typescript
+if (!Number.isInteger(qty) || qty < 1 || qty > 100)
+  return report("rejected", "Quantity is outside the reviewed form schema", {}, [
+    "Expose fixed operations rather than arbitrary selectors",
+  ]);
+
+return report(
+  "passed",
+  "Calculated a non-submitting local form preview",
+  {
+    quantity: qty,
+    previewTotalCents: qty * 250,
+    submitted: false,
+    allowedOperations: ["navigate fixture", "fill quantity", "preview"],
+  },
+  [
+    "Validate a fixed capability",
+    "Fill the bounded field in the local model",
+    "Preview without submitting an external form",
+  ],
+);
+```
+
+### Check your understanding
+
+Run **Preview the local form** in the application. Compare the result with these scenario expectations:
+
+```json
+{
+  "input": {
+    "url": "http://127.0.0.1:3029/fixture",
+    "quantity": 3,
+    "redirected": false
+  },
+  "expectedOutcome": "passed",
+  "checkEvidence": {
+    "previewTotalCents": 750
+  }
+}
+```
+
+Then try **Reject navigation outside the fixture**. Its expected outcome is `rejected`; identify the condition or evidence field that explains the difference.
 
 ## Validation
 
